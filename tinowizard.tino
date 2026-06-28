@@ -1,0 +1,68 @@
+{
+    "tino_version": "1.0",
+    "app_name": "Tino Wizard",
+    "app_type": "GUI",
+    "executable": "dist/tino-wizard/tino-wizard",
+    "icon": "Tino Wizard.png",
+    "install_dir": "/opt/tino-wizard",
+    "exe_path": "/usr/local/bin/tino-wizard",
+    "icon_path": "/usr/share/icons/tino-wizard.png",
+    "desktop_path": "/usr/share/applications",
+    "version": "1.0.0",
+    "description": "Tino Wizard helps in making installers for your linux apps",
+    "homepage": "https://github.com/Tino-Setup",
+    "author": "Motagamwala Taha Arif Ali",
+    "license_file": "Tino Wizard License.txt",
+    "pre_install_information_file": null,
+    "post_install_information_file": null,
+    "installer_icon": null,
+    "uninstaller_icon": null,
+    "files": [
+        "dist/tino-wizard/tino-wizard",
+        "dist/tino-wizard/_internal/Tino Wizard.png"
+    ],
+    "folders": [
+        "dist/tino-wizard/_internal"
+    ],
+    "desktop": {
+        "enabled": true,
+        "comment": "Tino Wizard app",
+        "categories": "Utility",
+        "extra_keys": [
+            {
+                "key": "Terminal",
+                "value": "false"
+            },
+            {
+                "key": "StartupWMClass",
+                "value": "Tinowizard"
+            }
+        ],
+        "extra_entries": [],
+        "executable_args": ""
+    },
+    "installer_profiles": {
+        "custom": {
+            "enabled": true,
+            "type": "custom",
+            "additional_tasks": [],
+            "pre_install_script": "",
+            "post_install_script": "postinstall.sh",
+            "pre_uninstall_script": "",
+            "post_uninstall_script": ""
+        }
+    },
+    "compression_type": "lzma",
+    "compression_level": 9,
+    "localizations": {
+        "en_US": {
+            "language_label": "English (United States)",
+            "app_name": "Tino Wizard",
+            "description": "Tino Wizard helps in making installers for your linux apps",
+            "license_file": "Tino Wizard License.txt",
+            "pre_install_information_file": "",
+            "post_install_information_file": "",
+            "additional_tasks": {}
+        }
+    }
+}

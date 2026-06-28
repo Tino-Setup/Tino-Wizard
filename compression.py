@@ -54,7 +54,7 @@ def _iter_assets(project: TinoProject, extra_files: list[Path] | None = None) ->
             if item.is_file() or item.is_symlink():
                 try:
                     resolved = item.resolve()
-                    if not str(resolved).startswith(str(d_path.resolve())):
+                    if not resolved.is_relative_to(d_path.resolve()):
                         logger.warning(f"Skipping symlink escaping project directory: {item}")
                         continue
                 except Exception:

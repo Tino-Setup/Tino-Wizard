@@ -16,7 +16,7 @@ from config import ConfigManager, LocalizationEntry
 from compression import compress_project
 from logger_config import get_logger, get_project_log_path
 from TranslationTable import TranslationTable
-from Elevation import check_and_elevate, needs_elevation, drop_privileges_cmd, is_root, fix_ownership
+
 
 logger = get_logger()
 
@@ -227,15 +227,7 @@ class App(tk.Tk):
         project_dir = os.path.dirname(self.project.current_path)
         logger.info(f"Generating installer for project at {project_dir}")
 
-        if needs_elevation(project_dir):
-            logger.info("Project directory requires elevation. Elevating wizard...")
-            try:
-                self.project.save(self.project.current_path)
-            except Exception as e:
-                logger.error(f"Failed to save project before elevation: {e}")
-            check_and_elevate(self.project.current_path)
-            self.destroy()
-            return
+
 
         desktop = data.desktop
         desktop_enabled = data.desktop.enabled
@@ -282,9 +274,12 @@ class App(tk.Tk):
         custom_prof = data.installer_profiles.get("custom")
         is_gui = data.app_type == "GUI"
         
+        uninstaller_icon_src = data.uninstaller_icon if data.uninstaller_icon else os.path.join(os.path.dirname(__file__), "Uninstaller", "Tino Uninstaller.png")
+        
         uninstaller_icon_deployed_path = ""
-        if is_gui and data.icon_path:
-            base_icon, ext = os.path.splitext(data.icon_path)
+        if data.icon_path:
+            base_icon, _ = os.path.splitext(data.icon_path)
+            _, ext = os.path.splitext(uninstaller_icon_src)
             uninstaller_icon_deployed_path = f"{base_icon}-uninstaller{ext}"
         
         uninstaller_bin_dir = os.path.dirname(data.exe_path)
@@ -302,7 +297,7 @@ class App(tk.Tk):
             "Application Pre Uninstallation Script": os.path.basename(custom_prof.pre_uninstall_script) if custom_prof and custom_prof.pre_uninstall_script else "",
             "Application Post Uninstallation Script": os.path.basename(custom_prof.post_uninstall_script) if custom_prof and custom_prof.post_uninstall_script else "",
             "Application Name Slug": app_slug,
-            "Application Uninstaller Desktop Path": f"{data.desktop_path}/{app_slug}-uninstaller.desktop" if is_gui else "",
+            "Application Uninstaller Desktop Path": f"{data.desktop_path}/{app_slug}-uninstaller.desktop",
             "Application Uninstaller Icon Path": uninstaller_icon_deployed_path,
             "Localization": {}
         }
@@ -326,7 +321,6 @@ class App(tk.Tk):
         uninstaller_df.path = os.path.join(project_dir, f"{app_slug}-uninstaller.desktop")
         uninstaller_df.setCustom("StartupWMClass", "uninstaller")
         
-        uninstaller_icon_src = data.uninstaller_icon if data.uninstaller_icon else os.path.join(os.path.dirname(__file__), "Uninstaller", "Tino Uninstaller.png")
         if uninstaller_icon_deployed_path:
             uninstaller_df.setIcon(uninstaller_icon_deployed_path)
         else:
@@ -367,12 +361,16 @@ class App(tk.Tk):
             class OutputRedirector:
                 def write(self, string):
                     if string.strip('\r\n'):
-                        build_page.app.after(0, build_page.append_output, string)
+                        try:
+                            build_page.app.after(0, build_page.append_output, string)
+                        except RuntimeError:
+                            pass
                         if build_log_file:
                             build_log_file.write(string)
                             build_log_file.flush()
                 def flush(self):
-                    pass
+                    if build_log_file:
+                        build_log_file.flush()
                 
             redirector = OutputRedirector()
             sys.stdout = redirector
@@ -455,7 +453,7 @@ class App(tk.Tk):
             "Application Installation Path": data.install_dir,
             "Application Executable Path": data.exe_path,
             "Application Icon Path": data.icon_path if is_gui else "",
-            "Application Desktop Path": data.desktop_path if is_gui else "",
+            "Application Desktop Path": data.desktop_path,
             "Application Executable Source": os.path.basename(data.executable),
             "Application Icon Source": os.path.basename(data.icon) if data.icon else "",
             "Application Desktop Source": f"{app_slug}.desktop" if is_gui else "",
@@ -511,7 +509,7 @@ class App(tk.Tk):
 
         self.after(0, build_page.set_stage, "Build completed successfully!")
 
-        fix_ownership(project_dir)
+
 
         def show_success():
             messagebox.showinfo(
@@ -527,10 +525,18 @@ class App(tk.Tk):
     def _get_pyinstaller_cmd(self):
         """Returns the base PyInstaller command as a list."""
         if getattr(sys, 'frozen', False):
-            venv_bin = os.path.join(os.path.dirname(sys.executable), "tinowizard", "Scripts" if os.name == 'nt' else "bin", "pyinstaller" + (".exe" if os.name == 'nt' else ""))
+            venv_bin = os.path.join(os.path.dirname(sys.executable), "tinowizard", "bin", "pyinstaller")
             return [venv_bin] if os.path.isfile(venv_bin) else ["pyinstaller"]
         else:
             return [sys.executable, "-m", "PyInstaller"]
+
+    def _check_pyinstaller_available(self):
+        """Check if PyInstaller is available. Shows error and returns False if not."""
+        cmd = self._get_pyinstaller_cmd()
+        if getattr(sys, 'frozen', False) and cmd == ["pyinstaller"] and not shutil.which("pyinstaller"):
+            self.after(0, lambda: messagebox.showerror("Generation Error", "PyInstaller command not found. Please ensure the 'tinowizard' venv exists next to the executable, or pyinstaller is in your PATH."))
+            return False
+        return True
 
     def _build_uninstaller(self, project_dir, data, uninstaller_tino_path, custom_prof, app_slug):
         """
@@ -546,10 +552,9 @@ class App(tk.Tk):
         Returns:
             bool: True if build was successful, False otherwise.
         """
-        cmd = self._get_pyinstaller_cmd()
-        if getattr(sys, 'frozen', False) and cmd == ["pyinstaller"] and not shutil.which("pyinstaller"):
-            self.after(0, lambda: messagebox.showerror("Generation Error", "PyInstaller command not found. Please ensure the 'tinowizard' venv exists next to the executable, or pyinstaller is in your PATH."))
+        if not self._check_pyinstaller_available():
             return False
+        cmd = self._get_pyinstaller_cmd()
 
         logger.info("Building Uninstaller binary...")
         wizard_dir = os.path.dirname(__file__)
@@ -590,9 +595,6 @@ class App(tk.Tk):
 
         cmd.extend(uninstaller_args)
 
-        if is_root() and not needs_elevation(project_dir):
-            cmd = drop_privileges_cmd(cmd)
-
         try:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             if process.stdout is not None:
@@ -625,10 +627,9 @@ class App(tk.Tk):
         Returns:
             bool: True if build was successful, False otherwise.
         """
-        cmd = self._get_pyinstaller_cmd()
-        if getattr(sys, 'frozen', False) and cmd == ["pyinstaller"] and not shutil.which("pyinstaller"):
-            self.after(0, lambda: messagebox.showerror("Generation Error", "PyInstaller command not found. Please ensure the 'tinowizard' venv exists next to the executable, or pyinstaller is in your PATH."))
+        if not self._check_pyinstaller_available():
             return False
+        cmd = self._get_pyinstaller_cmd()
 
         logger.info("Building Installer binary...")
         custom_prof = data.installer_profiles.get("custom")
@@ -690,9 +691,6 @@ class App(tk.Tk):
             if post_info: installer_args += ["--add-data", f"{post_info}:."]
             
         cmd.extend(installer_args)
-            
-        if is_root() and not needs_elevation(project_dir):
-            cmd = drop_privileges_cmd(cmd)
             
         try:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)

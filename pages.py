@@ -1,4 +1,5 @@
 import os
+import re
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from logger_config import get_logger
@@ -734,7 +735,7 @@ class InstallerOptionsPage(BasePage):
             self._last_snapshot = snapshot
             return
 
-        app_slug = data.app_name.lower().replace(' ', '-') if data.app_name else "app"
+        app_slug = re.sub(r'[^\w\-.]', '_', data.app_name) if data.app_name else "app"
         if not data.install_dir:
             data.install_dir = f"/opt/{app_slug}"
         if not data.exe_path:

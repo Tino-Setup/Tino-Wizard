@@ -1,7 +1,6 @@
 import logging
 import os
 import tempfile
-from Elevation import check_and_elevate
 
 logger = logging.getLogger("TinoWizard")
 logger.setLevel(logging.INFO)
@@ -9,17 +8,12 @@ logger.propagate = False
 
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
-app_log_path = os.path.join(os.path.dirname(__file__), "tinowizard.log")
+app_log_path = os.path.join(os.path.expanduser("~"), "tinowizard.log")
 try:
     app_handler = logging.FileHandler(app_log_path)
     app_handler.setFormatter(formatter)
     logger.addHandler(app_handler)
-except PermissionError:
-    try:
-        check_and_elevate()
-    except Exception:
-        pass
-
+except (PermissionError, OSError):
     temp_log_path = os.path.join(tempfile.gettempdir(), "tinowizard.log")
     try:
         app_handler = logging.FileHandler(temp_log_path)

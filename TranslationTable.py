@@ -337,7 +337,7 @@ class TranslationTable(tk.Toplevel):
         
         loc = self.data.localizations[lang_code]
         if is_task:
-            if lang_code == "en_US" or lang_code == self.cached_langs[0]:
+            if lang_code == "en_US":
                 new_key = simpledialog.askstring("Edit Task Key", "Enter new internal key for this task:", initialvalue=task_key)
                 if new_key and new_key != task_key:
                     self.update_task_key(task_key, new_key)
